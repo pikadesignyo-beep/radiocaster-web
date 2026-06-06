@@ -6,13 +6,15 @@
         body { 
             margin: 0; 
             overflow: hidden; 
-            background-color: #0a0a0a; /* Dark background */
+            background-color: #0a0a0a;
             color: #ffffff; 
             font-family: sans-serif; 
         }
         
-        /* This hides the default Google Cast progress bar and text */
-        cast-media-player { display: none; } 
+        cast-media-player { 
+            display: none !important; 
+            visibility: hidden !important; 
+        } 
 
         #metadata-container { 
             position: absolute; 
@@ -55,7 +57,6 @@
         const context = cast.framework.CastReceiverContext.getInstance();
         const playerManager = context.getPlayerManager();
 
-        // 1. Listen for the initial load from the phone
         playerManager.addEventListener(cast.framework.events.EventType.MEDIA_STATUS, (event) => {
             if (event.mediaStatus && event.mediaStatus.media && event.mediaStatus.media.metadata) {
                 const metadata = event.mediaStatus.media.metadata;
@@ -63,12 +64,10 @@
             }
         });
 
-        // 2. The Custom Message Channel (This is how we bypass the SDK limits)
         const CUSTOM_CHANNEL = 'urn:x-cast:nz.mediaworks.radio';
         
         context.addCustomMessageListener(CUSTOM_CHANNEL, (customEvent) => {
             try {
-                // Parse the JSON string sent from Android
                 const liveData = JSON.parse(customEvent.data);
                 updateUI(liveData.title, liveData.artist, liveData.artworkUrl);
             } catch (e) {
@@ -76,7 +75,6 @@
             }
         });
 
-        // Helper function to update the screen
         function updateUI(title, artist, artworkUrl) {
             if (title) document.getElementById('title').textContent = title;
             if (artist) document.getElementById('artist').textContent = artist;
@@ -88,9 +86,8 @@
             }
         }
 
-        // Start the receiver system
         const options = new cast.framework.CastReceiverOptions();
-        options.disableIdleTimeout = true; // Prevents the TV from sleeping during live radio
+        options.disableIdleTimeout = true;
         context.start(options);
     </script>
 </body>
