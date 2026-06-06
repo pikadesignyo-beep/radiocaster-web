@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Garage FM Receiver</title>
+    <title>Garage FM</title>
     <style>
         body { 
             margin: 0; 
@@ -20,7 +20,8 @@
             object-fit: cover;
             filter: blur(40px) brightness(0.3);
             z-index: -2;
-            transition: opacity 1s ease-in-out;
+            transition: opacity 0.8s ease-in-out;
+            opacity: 1;
         }
 
         #station-logo {
@@ -30,6 +31,7 @@
             height: 80px;
             z-index: 10;
             opacity: 0.8;
+            transition: opacity 0.5s ease;
         }
         
         #metadata-container { 
@@ -39,6 +41,8 @@
             display: flex; 
             align-items: center; 
             z-index: 5;
+            transition: opacity 0.5s ease;
+            opacity: 1;
         }
         
         #artwork { 
@@ -49,6 +53,7 @@
             object-fit: cover; 
             display: none;
             box-shadow: 0px 15px 40px rgba(0,0,0,0.8);
+            transition: opacity 0.5s ease;
         }
         
         .text-info { 
@@ -66,9 +71,7 @@
 <body>
 
     <img id="bg-blur" src="" />
-
     <img id="station-logo" src="garage-fm-logo.png" />
-    
     <audio id="audio-engine"></audio>
 
     <div id="metadata-container">
@@ -85,36 +88,46 @@
         options.disableIdleTimeout = true;
         options.mediaElement = document.getElementById('audio-engine');
 
-        context.addCustomMessageListener('urn:x-cast:nz.mediaworks.radio', (event) => {
-            
-            let data = event.data;
-            if (typeof data === 'string') {
-                data = JSON.parse(data);
-            }
-            
-            document.getElementById('title').textContent = data.title;
-            document.getElementById('artist').textContent = data.artist;
-            
-            const img = document.getElementById('artwork');
+        // Helper to handle smooth transitions
+        function updateUI(data) {
+            const container = document.getElementById('metadata-container');
             const bgBlur = document.getElementById('bg-blur');
+            const logo = document.getElementById('station-logo');
+            
+            // 1. Fade out
+            container.style.opacity = '0';
+            bgBlur.style.opacity = '0';
+            logo.style.opacity = '0';
 
-            if (data.artworkUrl) {
-                img.src = data.artworkUrl;
-                img.style.display = 'block';
-                bgBlur.src = data.artworkUrl;
-            } else {
-                img.style.display = 'none';
-                bgBlur.src = ''; 
-            }
+            // 2. Wait for fade out, then swap data
+            setTimeout(() => {
+                document.getElementById('title').textContent = data.title;
+                document.getElementById('artist').textContent = data.artist;
+                
+                const img = document.getElementById('artwork');
+                if (data.artworkUrl) {
+                    img.src = data.artworkUrl;
+                    img.style.display = 'block';
+                    bgBlur.src = data.artworkUrl;
+                } else {
+                    img.style.display = 'none';
+                    bgBlur.src = ''; 
+                }
 
-            const stationLogo = document.getElementById('station-logo');
-            if (data.stationId === 'hauraki') {
-                stationLogo.src = 'hauraki.png';
-            } else if (data.stationId === 'brianfm') {
-                stationLogo.src = 'brianfm.png';
-            } else {
-                stationLogo.src = 'thesound.png';
-            }
+                if (data.stationId === 'hauraki') logo.src = 'hauraki.png';
+                else if (data.stationId === 'brianfm') logo.src = 'brianfm.png';
+                else logo.src = 'thesound.png';
+
+                // 3. Fade back in
+                container.style.opacity = '1';
+                bgBlur.style.opacity = '1';
+                logo.style.opacity = '0.8';
+            }, 500); // Wait 500ms for transition
+        }
+
+        context.addCustomMessageListener('urn:x-cast:nz.mediaworks.radio', (event) => {
+            let data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            updateUI(data);
         });
 
         context.start(options);
