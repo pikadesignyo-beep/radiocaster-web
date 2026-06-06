@@ -50,44 +50,57 @@
 
     <script>
         const context = cast.framework.CastReceiverContext.getInstance();
-        const playerManager = context.getPlayerManager();
+        const options = new cast.framework.CastReceiverOptions();
+        options.disableIdleTimeout = true;
+        options.mediaElement = document.getElementById('audio-engine');
+        context.start(options);
 
-        playerManager.addEventListener(cast.framework.events.EventType.MEDIA_STATUS, (event) => {
-            if (event.mediaStatus && event.mediaStatus.media && event.mediaStatus.media.metadata) {
-                const metadata = event.mediaStatus.media.metadata;
-                updateUI(metadata.title, metadata.artist, metadata.images ? metadata.images[0].url : '');
-            }
-        });
+        let lastTrackIdentifier = "";
 
-        const CUSTOM_CHANNEL = 'urn:x-cast:nz.mediaworks.radio';
-        
-        context.addCustomMessageListener(CUSTOM_CHANNEL, (customEvent) => {
+        async function fetchMetadata() {
             try {
-                const liveData = JSON.parse(customEvent.data);
-                updateUI(liveData.title, liveData.artist, liveData.artworkUrl);
-            } catch (e) {
-                console.error("Data parse error", e);
-            }
-        });
+                const response = await fetch("https://radio-api.mediaworks.nz/radio-api/v3/station/thesound/digital/web?unique=true");
+                const json = await response.json();
+                const nowPlaying = json.nowPlaying[0];
+                
+                const currentArtist = nowPlaying.artist;
+                const currentTitle = nowPlaying.name;
+                const defaultArtwork = nowPlaying.artwork;
+                const currentTrackIdentifier = currentArtist + " - " + currentTitle;
 
-        function updateUI(title, artist, artworkUrl) {
-            if (title) document.getElementById('title').textContent = title;
-            if (artist) document.getElementById('artist').textContent = artist;
-            
-            const img = document.getElementById('artwork');
-            if (artworkUrl) {
-                img.src = artworkUrl;
-                img.style.display = 'block';
+                if (currentTrackIdentifier !== lastTrackIdentifier) {
+                    lastTrackIdentifier = currentTrackIdentifier;
+                    let finalArtworkUrl = defaultArtwork;
+
+                    try {
+                        const searchQuery = encodeURIComponent(currentArtist + " " + currentTitle);
+                        const itunesResponse = await fetch("https://itunes.apple.com/search?term=" + searchQuery + "&entity=song&limit=1");
+                        const itunesJson = await itunesResponse.json();
+                        
+                        if (itunesJson.resultCount > 0) {
+                            const lowResUrl = itunesJson.results[0].artworkUrl100;
+                            finalArtworkUrl = lowResUrl.replace("100x100bb", "1000x1000bb");
+                        }
+                    } catch (e) {
+                        // Fallback to default MediaWorks artwork on iTunes failure
+                    }
+
+                    document.getElementById('title').textContent = currentTitle;
+                    document.getElementById('artist').textContent = currentArtist;
+                    
+                    const img = document.getElementById('artwork');
+                    if (finalArtworkUrl) {
+                        img.src = finalArtworkUrl;
+                        img.style.display = 'block';
+                    }
+                }
+            } catch (e) {
+                console.error("API fetch failure");
             }
         }
 
-        const options = new cast.framework.CastReceiverOptions();
-        options.disableIdleTimeout = true;
-        
-        // Bind audio execution to the hidden HTML5 element, bypassing the Cast UI
-        options.mediaElement = document.getElementById('audio-engine');
-        
-        context.start(options);
+        setInterval(fetchMetadata, 5000);
+        fetchMetadata();
     </script>
 </body>
 </html>
