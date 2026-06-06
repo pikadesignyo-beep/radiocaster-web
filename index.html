@@ -67,7 +67,7 @@
 
     <img id="bg-blur" src="" />
 
-    <img id="station-logo" src="https://upload.wikimedia.org/wikipedia/en/5/53/The_Sound_NZ_logo.svg" />
+    <img id="station-logo" src="garage-fm-logo.png" />
     
     <audio id="audio-engine"></audio>
 
@@ -83,24 +83,18 @@
         const context = cast.framework.CastReceiverContext.getInstance();
         const options = new cast.framework.CastReceiverOptions();
         options.disableIdleTimeout = true;
-        
-        // Bind the audio element just like your old code
         options.mediaElement = document.getElementById('audio-engine');
 
-        // Listen for metadata sent from the Android app
         context.addCustomMessageListener('urn:x-cast:nz.mediaworks.radio', (event) => {
             
-            // Type-safe payload extraction (THIS IS THE FIX)
             let data = event.data;
             if (typeof data === 'string') {
                 data = JSON.parse(data);
             }
             
-            // 1. Update Text
             document.getElementById('title').textContent = data.title;
             document.getElementById('artist').textContent = data.artist;
             
-            // 2. Update Artwork & Blur Background
             const img = document.getElementById('artwork');
             const bgBlur = document.getElementById('bg-blur');
 
@@ -110,21 +104,19 @@
                 bgBlur.src = data.artworkUrl;
             } else {
                 img.style.display = 'none';
-                bgBlur.src = ''; // Clear background if no art is found
+                bgBlur.src = ''; 
             }
 
-            // 3. Dynamically change the Station Logo top-right
             const stationLogo = document.getElementById('station-logo');
             if (data.stationId === 'hauraki') {
-                stationLogo.src = 'https://upload.wikimedia.org/wikipedia/en/thumb/0/07/Radio_Hauraki_logo.svg/512px-Radio_Hauraki_logo.svg.png';
+                stationLogo.src = 'https://cdn-profiles.tunein.com/s16238/images/logog.png';
             } else if (data.stationId === 'brianfm') {
-                stationLogo.src = 'https://images.squarespace-cdn.com/content/v1/5e2f7b88960814421b4cbdf5/1580252119198-U1QK72S3XQYJ915A9A75/BrianFM_Logo_White.png';
+                stationLogo.src = 'https://cdn-profiles.tunein.com/s276961/images/logog.png';
             } else {
-                stationLogo.src = 'https://upload.wikimedia.org/wikipedia/en/5/53/The_Sound_NZ_logo.svg';
+                stationLogo.src = 'https://cdn-profiles.tunein.com/s148633/images/logog.png';
             }
         });
 
-        // Start the receiver
         context.start(options);
     </script>
 </body>
