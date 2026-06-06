@@ -88,6 +88,9 @@
         options.disableIdleTimeout = true;
         options.mediaElement = document.getElementById('audio-engine');
 
+        // Track the current state to prevent redundant UI updates
+        let lastTrackKey = "";
+
         // Helper to handle smooth transitions
         function updateUI(data) {
             const container = document.getElementById('metadata-container');
@@ -122,12 +125,20 @@
                 container.style.opacity = '1';
                 bgBlur.style.opacity = '1';
                 logo.style.opacity = '0.8';
-            }, 500); // Wait 500ms for transition
+            }, 500);
         }
 
         context.addCustomMessageListener('urn:x-cast:nz.mediaworks.radio', (event) => {
             let data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-            updateUI(data);
+            
+            // Generate a unique key for the current track
+            const currentTrackKey = data.artist + data.title + data.stationId;
+
+            // Only trigger updateUI if the track has actually changed
+            if (currentTrackKey !== lastTrackKey) {
+                lastTrackKey = currentTrackKey;
+                updateUI(data);
+            }
         });
 
         context.start(options);
