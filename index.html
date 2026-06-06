@@ -89,7 +89,12 @@
 
         // Listen for metadata sent from the Android app
         context.addCustomMessageListener('urn:x-cast:nz.mediaworks.radio', (event) => {
-            const data = JSON.parse(event.data);
+            
+            // Type-safe payload extraction (THIS IS THE FIX)
+            let data = event.data;
+            if (typeof data === 'string') {
+                data = JSON.parse(data);
+            }
             
             // 1. Update Text
             document.getElementById('title').textContent = data.title;
@@ -111,10 +116,8 @@
             // 3. Dynamically change the Station Logo top-right
             const stationLogo = document.getElementById('station-logo');
             if (data.stationId === 'hauraki') {
-                // Replace with a link to a Hauraki logo PNG
                 stationLogo.src = 'https://upload.wikimedia.org/wikipedia/en/thumb/0/07/Radio_Hauraki_logo.svg/512px-Radio_Hauraki_logo.svg.png';
             } else if (data.stationId === 'brianfm') {
-                // Replace with a link to a Brian FM logo PNG
                 stationLogo.src = 'https://images.squarespace-cdn.com/content/v1/5e2f7b88960814421b4cbdf5/1580252119198-U1QK72S3XQYJ915A9A75/BrianFM_Logo_White.png';
             } else {
                 stationLogo.src = 'https://upload.wikimedia.org/wikipedia/en/5/53/The_Sound_NZ_logo.svg';
