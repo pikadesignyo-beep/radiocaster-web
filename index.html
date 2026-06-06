@@ -11,9 +11,13 @@
             font-family: sans-serif; 
         }
         
+        /* Retain DOM presence for audio execution, relocate visually off-screen */
         cast-media-player { 
-            display: none !important; 
-            visibility: hidden !important; 
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
         } 
 
         #metadata-container { 
@@ -43,6 +47,7 @@
 </head>
 <body>
     
+    <cast-media-player></cast-media-player>
 
     <div id="metadata-container">
         <img id="artwork" src="" />
