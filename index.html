@@ -1,41 +1,128 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <title>Garage FM Receiver</title>
     <style>
-        body { background-color: #000; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        #container { text-align: center; width: 80%; }
-        #artwork { width: 400px; height: 400px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: cover; }
-        #artist { font-size: 2.5em; margin: 20px 0 10px 0; }
-        #title { font-size: 1.8em; color: #aaa; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #0a0a0a;
+            color: #ffffff; 
+            font-family: sans-serif; 
+        }
+
+        #bg-blur {
+            position: absolute;
+            top: -10%;
+            left: -10%;
+            width: 120vw;
+            height: 120vh;
+            object-fit: cover;
+            filter: blur(40px) brightness(0.3);
+            z-index: -2;
+            transition: opacity 1s ease-in-out;
+        }
+
+        #station-logo {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            height: 80px;
+            z-index: 10;
+            opacity: 0.8;
+        }
+        
+        #metadata-container { 
+            position: absolute; 
+            bottom: 15%; 
+            left: 8%; 
+            display: flex; 
+            align-items: center; 
+            z-index: 5;
+        }
+        
+        #artwork { 
+            width: 250px; 
+            height: 250px; 
+            border-radius: 12px; 
+            margin-right: 30px; 
+            object-fit: cover; 
+            display: none;
+            box-shadow: 0px 15px 40px rgba(0,0,0,0.8);
+        }
+        
+        .text-info { 
+            display: flex; 
+            flex-direction: column; 
+            text-shadow: 0px 4px 15px rgba(0,0,0,0.9);
+        }
+        
+        #title { font-size: 2.5em; font-weight: bold; margin-bottom: 8px;}
+        #artist { font-size: 1.8em; color: #e0e0e0; }
     </style>
+    
+    <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 </head>
 <body>
 
-    <div id="container">
-        <img id="artwork" src="" alt="Album Art">
-        <h1 id="artist">Waiting for metadata...</h1>
-        <p id="title"></p>
+    <img id="bg-blur" src="" />
+
+    <img id="station-logo" src="https://upload.wikimedia.org/wikipedia/en/5/53/The_Sound_NZ_logo.svg" />
+    
+    <audio id="audio-engine"></audio>
+
+    <div id="metadata-container">
+        <img id="artwork" src="" />
+        <div class="text-info">
+            <div id="title">Garage FM</div>
+            <div id="artist">Ready to Stream</div>
+        </div>
     </div>
 
-    <!-- Cast Receiver SDK -->
-    <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
     <script>
         const context = cast.framework.CastReceiverContext.getInstance();
-        const playerManager = context.getPlayerManager();
+        const options = new cast.framework.CastReceiverOptions();
+        options.disableIdleTimeout = true;
+        
+        // Bind the audio element just like your old code
+        options.mediaElement = document.getElementById('audio-engine');
 
-        // Listen for your custom metadata messages
+        // Listen for metadata sent from the Android app
         context.addCustomMessageListener('urn:x-cast:nz.mediaworks.radio', (event) => {
             const data = JSON.parse(event.data);
             
-            // Update UI
-            document.getElementById('artist').innerText = data.artist;
-            document.getElementById('title').innerText = data.title;
-            document.getElementById('artwork').src = data.artworkUrl;
+            // 1. Update Text
+            document.getElementById('title').textContent = data.title;
+            document.getElementById('artist').textContent = data.artist;
             
-            console.log("Metadata updated for: " + data.stationId);
+            // 2. Update Artwork & Blur Background
+            const img = document.getElementById('artwork');
+            const bgBlur = document.getElementById('bg-blur');
+
+            if (data.artworkUrl) {
+                img.src = data.artworkUrl;
+                img.style.display = 'block';
+                bgBlur.src = data.artworkUrl;
+            } else {
+                img.style.display = 'none';
+                bgBlur.src = ''; // Clear background if no art is found
+            }
+
+            // 3. Dynamically change the Station Logo top-right
+            const stationLogo = document.getElementById('station-logo');
+            if (data.stationId === 'hauraki') {
+                // Replace with a link to a Hauraki logo PNG
+                stationLogo.src = 'https://upload.wikimedia.org/wikipedia/en/thumb/0/07/Radio_Hauraki_logo.svg/512px-Radio_Hauraki_logo.svg.png';
+            } else if (data.stationId === 'brianfm') {
+                // Replace with a link to a Brian FM logo PNG
+                stationLogo.src = 'https://images.squarespace-cdn.com/content/v1/5e2f7b88960814421b4cbdf5/1580252119198-U1QK72S3XQYJ915A9A75/BrianFM_Logo_White.png';
+            } else {
+                stationLogo.src = 'https://upload.wikimedia.org/wikipedia/en/5/53/The_Sound_NZ_logo.svg';
+            }
         });
 
-        context.start();
+        // Start the receiver
+        context.start(options);
     </script>
 </body>
 </html>
