@@ -11,15 +11,6 @@
             font-family: sans-serif; 
         }
         
-        /* Retain DOM presence for audio execution, relocate visually off-screen */
-        cast-media-player { 
-            position: absolute;
-            top: -9999px;
-            left: -9999px;
-            width: 1px;
-            height: 1px;
-        } 
-
         #metadata-container { 
             position: absolute; 
             bottom: 15%; 
@@ -47,7 +38,7 @@
 </head>
 <body>
     
-    <cast-media-player></cast-media-player>
+    <audio id="audio-engine"></audio>
 
     <div id="metadata-container">
         <img id="artwork" src="" />
@@ -92,6 +83,10 @@
 
         const options = new cast.framework.CastReceiverOptions();
         options.disableIdleTimeout = true;
+        
+        // Bind audio execution to the hidden HTML5 element, bypassing the Cast UI
+        options.mediaElement = document.getElementById('audio-engine');
+        
         context.start(options);
     </script>
 </body>
