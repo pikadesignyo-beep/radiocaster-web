@@ -10,6 +10,27 @@
             color: #ffffff; 
             font-family: sans-serif; 
         }
+
+        #bg-blur {
+            position: absolute;
+            top: -10%;
+            left: -10%;
+            width: 120vw;
+            height: 120vh;
+            object-fit: cover;
+            filter: blur(40px) brightness(0.3);
+            z-index: -2;
+            transition: opacity 1s ease-in-out;
+        }
+
+        #station-logo {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            height: 80px;
+            z-index: 10;
+            opacity: 0.8;
+        }
         
         #metadata-container { 
             position: absolute; 
@@ -17,6 +38,7 @@
             left: 8%; 
             display: flex; 
             align-items: center; 
+            z-index: 5;
         }
         
         #artwork { 
@@ -26,17 +48,26 @@
             margin-right: 30px; 
             object-fit: cover; 
             display: none;
-            box-shadow: 0px 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0px 15px 40px rgba(0,0,0,0.8);
         }
         
-        .text-info { display: flex; flex-direction: column; }
+        .text-info { 
+            display: flex; 
+            flex-direction: column; 
+            text-shadow: 0px 4px 15px rgba(0,0,0,0.9);
+        }
+        
         #title { font-size: 2.5em; font-weight: bold; margin-bottom: 8px;}
-        #artist { font-size: 1.8em; color: #b3b3b3; }
+        #artist { font-size: 1.8em; color: #e0e0e0; }
     </style>
     
     <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 </head>
 <body>
+
+    <img id="bg-blur" src="" />
+
+    <img id="station-logo" src="https://upload.wikimedia.org/wikipedia/en/5/53/The_Sound_NZ_logo.svg" />
     
     <audio id="audio-engine"></audio>
 
@@ -82,16 +113,20 @@
                             finalArtworkUrl = lowResUrl.replace("100x100bb", "1000x1000bb");
                         }
                     } catch (e) {
-                        // Fallback to default MediaWorks artwork on iTunes failure
+                        // Fallback to default MediaWorks artwork
                     }
 
                     document.getElementById('title').textContent = currentTitle;
                     document.getElementById('artist').textContent = currentArtist;
                     
                     const img = document.getElementById('artwork');
+                    const bgBlur = document.getElementById('bg-blur');
+
                     if (finalArtworkUrl) {
                         img.src = finalArtworkUrl;
                         img.style.display = 'block';
+                        
+                        bgBlur.src = finalArtworkUrl;
                     }
                 }
             } catch (e) {
