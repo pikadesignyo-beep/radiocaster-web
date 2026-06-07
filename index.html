@@ -11,7 +11,12 @@
             font-family: sans-serif; 
         }
 
-        #bg-blur {
+        @keyframes kenburns {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.15); }
+        }
+
+        .bg-layer {
             position: absolute;
             top: -5%;
             left: -5%;
@@ -20,8 +25,14 @@
             object-fit: cover;
             filter: blur(6px) brightness(0.5);
             z-index: -2;
-            transition: opacity 0.8s ease-in-out;
+            opacity: 0;
+            transition: opacity 3s ease-in-out; 
+            animation: kenburns 25s linear infinite alternate; 
+        }
+
+        .bg-active {
             opacity: 1;
+            z-index: -1;
         }
 
         #station-logo {
@@ -70,7 +81,9 @@
 </head>
 <body>
 
-    <img id="bg-blur" src="" />
+    <img id="bg-1" class="bg-layer bg-active" src="" />
+    <img id="bg-2" class="bg-layer" src="" />
+    
     <img id="station-logo" src="garage-fm-logo.png" />
     <audio id="audio-engine"></audio>
 
@@ -89,14 +102,55 @@
         options.mediaElement = document.getElementById('audio-engine');
 
         let lastTrackKey = "";
+        let slideshowInterval;
+
+        function startSlideshow(artistImagesArray, albumImg) {
+            clearInterval(slideshowInterval); 
+            
+            let images = [];
+            if (artistImagesArray && Array.isArray(artistImagesArray)) {
+                images = images.concat(artistImagesArray);
+            }
+            
+            if (images.length === 0 && albumImg) {
+                images.push(albumImg);
+            }
+            
+            if (images.length === 0) return;
+
+            let activeBg = document.getElementById('bg-1');
+            let hiddenBg = document.getElementById('bg-2');
+
+            activeBg.src = images[0];
+            activeBg.classList.add('bg-active');
+            hiddenBg.classList.remove('bg-active');
+
+            if (images.length > 1) {
+                let currentIndex = 0;
+                
+                slideshowInterval = setInterval(() => {
+                    currentIndex = (currentIndex + 1) % images.length;
+                    
+                    hiddenBg.src = images[currentIndex];
+                    
+                    setTimeout(() => {
+                        hiddenBg.classList.add('bg-active');
+                        activeBg.classList.remove('bg-active');
+                        
+                        let temp = activeBg;
+                        activeBg = hiddenBg;
+                        hiddenBg = temp;
+                    }, 500); 
+
+                }, 15000); 
+            }
+        }
 
         function updateUI(data) {
             const container = document.getElementById('metadata-container');
-            const bgBlur = document.getElementById('bg-blur');
             const logo = document.getElementById('station-logo');
             
             container.style.opacity = '0';
-            bgBlur.style.opacity = '0';
             logo.style.opacity = '0';
 
             setTimeout(() => {
@@ -111,20 +165,13 @@
                     img.style.display = 'none';
                 }
 
-                if (data.artistImageUrl) {
-                    bgBlur.src = data.artistImageUrl;
-                } else if (data.artworkUrl) {
-                    bgBlur.src = data.artworkUrl;
-                } else {
-                    bgBlur.src = ''; 
-                }
-
                 if (data.stationId === 'hauraki') logo.src = 'hauraki.png';
                 else if (data.stationId === 'brianfm') logo.src = 'brianfm.png';
                 else logo.src = 'thesound.png';
 
+                startSlideshow(data.artistImages, data.artworkUrl);
+
                 container.style.opacity = '1';
-                bgBlur.style.opacity = '1';
                 logo.style.opacity = '0.8';
             }, 500);
         }
