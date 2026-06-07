@@ -18,7 +18,7 @@
             width: 120vw;
             height: 120vh;
             object-fit: cover;
-            filter: blur(40px) brightness(0.3);
+            filter: blur(25px) brightness(0.4);
             z-index: -2;
             transition: opacity 0.8s ease-in-out;
             opacity: 1;
@@ -88,21 +88,17 @@
         options.disableIdleTimeout = true;
         options.mediaElement = document.getElementById('audio-engine');
 
-        // Track the current state to prevent redundant UI updates
         let lastTrackKey = "";
 
-        // Helper to handle smooth transitions
         function updateUI(data) {
             const container = document.getElementById('metadata-container');
             const bgBlur = document.getElementById('bg-blur');
             const logo = document.getElementById('station-logo');
             
-            // 1. Fade out
             container.style.opacity = '0';
             bgBlur.style.opacity = '0';
             logo.style.opacity = '0';
 
-            // 2. Wait for fade out, then swap data
             setTimeout(() => {
                 document.getElementById('title').textContent = data.title;
                 document.getElementById('artist').textContent = data.artist;
@@ -111,9 +107,15 @@
                 if (data.artworkUrl) {
                     img.src = data.artworkUrl;
                     img.style.display = 'block';
-                    bgBlur.src = data.artworkUrl;
                 } else {
                     img.style.display = 'none';
+                }
+
+                if (data.artistImageUrl) {
+                    bgBlur.src = data.artistImageUrl;
+                } else if (data.artworkUrl) {
+                    bgBlur.src = data.artworkUrl;
+                } else {
                     bgBlur.src = ''; 
                 }
 
@@ -121,7 +123,6 @@
                 else if (data.stationId === 'brianfm') logo.src = 'brianfm.png';
                 else logo.src = 'thesound.png';
 
-                // 3. Fade back in
                 container.style.opacity = '1';
                 bgBlur.style.opacity = '1';
                 logo.style.opacity = '0.8';
@@ -131,10 +132,8 @@
         context.addCustomMessageListener('urn:x-cast:nz.mediaworks.radio', (event) => {
             let data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
             
-            // Generate a unique key for the current track
             const currentTrackKey = data.artist + data.title + data.stationId;
 
-            // Only trigger updateUI if the track has actually changed
             if (currentTrackKey !== lastTrackKey) {
                 lastTrackKey = currentTrackKey;
                 updateUI(data);
