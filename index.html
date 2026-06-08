@@ -112,14 +112,19 @@
                 images = images.concat(artistImagesArray);
             }
             
-            if (images.length === 0 && albumImg) {
+            if (images.length === 0 && albumImg && albumImg.trim() !== "") {
                 images.push(albumImg);
             }
             
-            if (images.length === 0) return;
-
             let activeBg = document.getElementById('bg-1');
             let hiddenBg = document.getElementById('bg-2');
+
+            // FIX: If there are no images, fade the background out 
+            if (images.length === 0) {
+                activeBg.classList.remove('bg-active');
+                hiddenBg.classList.remove('bg-active');
+                return;
+            }
 
             activeBg.src = images[0];
             activeBg.classList.add('bg-active');
@@ -158,7 +163,9 @@
                 document.getElementById('artist').textContent = data.artist;
                 
                 const img = document.getElementById('artwork');
-                if (data.artworkUrl) {
+                
+                // FIX: Ensure empty strings hide the artwork completely
+                if (data.artworkUrl && data.artworkUrl.trim() !== "") {
                     img.src = data.artworkUrl;
                     img.style.display = 'block';
                 } else {
