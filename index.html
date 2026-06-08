@@ -255,7 +255,8 @@
             try {
                 let mbQuery = `artist:"${cleanArtist}"`;
                 let mbUrl = `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(mbQuery)}&fmt=json`;
-                let mbRes = await fetch(mbUrl, { headers: { "User-Agent": "GarageFM-Receiver/1.0", "Accept": "application/json" } });
+                
+                let mbRes = await fetch(mbUrl);
                 
                 if (mbRes.ok) {
                     let mbData = await mbRes.json();
