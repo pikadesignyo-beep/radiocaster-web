@@ -202,7 +202,8 @@
             let fanartArray = [];
 
             try {
-                let itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(cleanArtist)}+${encodeURIComponent(cleanTrack)}&media=music&entity=song&limit=5`;
+                let itQuery = cleanArtist + " " + cleanTrack;
+                let itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(itQuery)}&media=music&entity=song&limit=5`;
                 let res = await fetch(itUrl);
                 if (res.ok) {
                     let data = await res.json();
@@ -252,8 +253,10 @@
             } catch (e) { console.error("iTunes Error: ", e); }
 
             try {
-                let mbUrl = `https://musicbrainz.org/ws/2/artist/?query=artist:"${encodeURIComponent(cleanArtist)}"&fmt=json`;
-                let mbRes = await fetch(mbUrl, { headers: { "User-Agent": "GarageFM-Receiver/1.0" } });
+                let mbQuery = `artist:"${cleanArtist}"`;
+                let mbUrl = `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(mbQuery)}&fmt=json`;
+                let mbRes = await fetch(mbUrl, { headers: { "User-Agent": "GarageFM-Receiver/1.0", "Accept": "application/json" } });
+                
                 if (mbRes.ok) {
                     let mbData = await mbRes.json();
                     let mbid = (mbData.artists && mbData.artists.length > 0) ? mbData.artists[0].id : "";
@@ -263,7 +266,7 @@
                         let fanartRes = await fetch(`https://webservice.fanart.tv/v3/music/${mbid}?api_key=${fanartKey}`);
                         if (fanartRes.ok) {
                             let fanartData = await fanartRes.json();
-                            if (fanartData.artistbackground) {
+                            if (fanartData.artistbackground && fanartData.artistbackground.length > 0) {
                                 for(let i=0; i < Math.min(fanartData.artistbackground.length, 8); i++) {
                                     fanartArray.push(fanartData.artistbackground[i].url);
                                 }
