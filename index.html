@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Garage FM</title>
     <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
+        body {
+            margin: 0;
+            overflow: hidden;
             background-color: #0a0a0a;
-            color: #ffffff; 
-            font-family: sans-serif; 
+            color: #ffffff;
+            font-family: sans-serif;
         }
 
         @keyframes kenburns {
@@ -26,8 +27,8 @@
             filter: blur(6px) brightness(0.5);
             z-index: -2;
             opacity: 0;
-            transition: opacity 3s ease-in-out; 
-            animation: kenburns 25s linear infinite alternate; 
+            transition: opacity 3s ease-in-out;
+            animation: kenburns 25s linear infinite alternate;
         }
 
         .bg-active {
@@ -44,51 +45,50 @@
             opacity: 0.8;
             transition: opacity 0.5s ease;
         }
-        
-        #metadata-container { 
-            position: absolute; 
-            bottom: 15%; 
-            left: 8%; 
-            display: flex; 
-            align-items: center; 
+
+        #metadata-container {
+            position: absolute;
+            bottom: 15%;
+            left: 8%;
+            display: flex;
+            align-items: center;
             z-index: 5;
             transition: opacity 0.5s ease;
             opacity: 1;
         }
-        
-        #artwork { 
-            width: 250px; 
-            height: 250px; 
-            border-radius: 12px; 
-            margin-right: 30px; 
-            object-fit: cover; 
+
+        #artwork {
+            width: 250px;
+            height: 250px;
+            border-radius: 12px;
+            margin-right: 30px;
+            object-fit: cover;
             display: none;
             box-shadow: 0px 15px 40px rgba(0,0,0,0.8);
             transition: opacity 0.5s ease;
         }
-        
-        .text-info { 
-            display: flex; 
-            flex-direction: column; 
+
+        .text-info {
+            display: flex;
+            flex-direction: column;
             text-shadow: 0px 4px 15px rgba(0,0,0,0.9);
         }
-        
-        #title { font-size: 2.5em; font-weight: bold; margin-bottom: 8px;}
+
+        #title { font-size: 2.5em; font-weight: bold; margin-bottom: 8px; }
         #artist { font-size: 1.8em; color: #e0e0e0; }
     </style>
-    
     <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 </head>
 <body>
 
-    <img id="bg-1" class="bg-layer bg-active" src="" />
-    <img id="bg-2" class="bg-layer" src="" />
-    
-    <img id="station-logo" src="garage-fm-logo.png" />
+    <img id="bg-1" class="bg-layer bg-active" src="" alt="Background 1" />
+    <img id="bg-2" class="bg-layer" src="" alt="Background 2" />
+
+    <img id="station-logo" src="garage-fm-logo.png" alt="Station Logo" />
     <audio id="audio-engine"></audio>
 
     <div id="metadata-container">
-        <img id="artwork" src="" />
+        <img id="artwork" src="" alt="Artwork" />
         <div class="text-info">
             <div id="title">Garage FM</div>
             <div id="artist">Ready to Stream</div>
@@ -117,17 +117,17 @@
         }
 
         function startSlideshow(artistImagesArray, albumImg) {
-            clearInterval(slideshowInterval); 
-            
+            clearInterval(slideshowInterval);
+
             let images = [];
             if (artistImagesArray && Array.isArray(artistImagesArray)) {
                 images = images.concat(artistImagesArray);
             }
-            
+
             if (images.length === 0 && albumImg && albumImg.trim() !== "") {
                 images.push(albumImg);
             }
-            
+
             let activeBg = document.getElementById('bg-1');
             let hiddenBg = document.getElementById('bg-2');
 
@@ -143,35 +143,34 @@
 
             if (images.length > 1) {
                 let currentIndex = 0;
-                
+
                 slideshowInterval = setInterval(() => {
                     currentIndex = (currentIndex + 1) % images.length;
                     hiddenBg.src = images[currentIndex];
-                    
+
                     setTimeout(() => {
                         hiddenBg.classList.add('bg-active');
                         activeBg.classList.remove('bg-active');
-                        
+
                         let temp = activeBg;
                         activeBg = hiddenBg;
                         hiddenBg = temp;
-                    }, 500); 
-
-                }, 30000); 
+                    }, 500);
+                }, 30000);
             }
         }
 
         function updateUI(data) {
             const container = document.getElementById('metadata-container');
             const logo = document.getElementById('station-logo');
-            
+
             container.style.opacity = '0';
             logo.style.opacity = '0';
 
             setTimeout(() => {
                 document.getElementById('title').textContent = data.title;
                 document.getElementById('artist').textContent = data.artist;
-                
+
                 const img = document.getElementById('artwork');
                 if (data.artworkUrl && data.artworkUrl.trim() !== "") {
                     img.src = data.artworkUrl;
@@ -255,29 +254,27 @@
             try {
                 let mbQuery = `artist:"${cleanArtist}"`;
                 let mbUrl = `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(mbQuery)}&fmt=json`;
-                
+
                 let mbRes = await fetch(mbUrl);
-                
+
                 if (mbRes.ok) {
                     let mbData = await mbRes.json();
                     let mbid = (mbData.artists && mbData.artists.length > 0) ? mbData.artists[0].id : "";
 
-                    // Modify the Fanart fetch block
-if (mbid) {
-    let fanartKey = "5901f1655cfb16ad1eb7af6357ca9cc4";
-    // Append timestamp to bust the cache and force a fresh CORS evaluation
-    let timestamp = new Date().getTime();
-    let fanartRes = await fetch(`https://webservice.fanart.tv/v3/music/${mbid}?api_key=${fanartKey}&_=${timestamp}`);
-    
-    if (fanartRes.ok) {
-        let fanartData = await fanartRes.json();
-        if (fanartData.artistbackground && fanartData.artistbackground.length > 0) {
-            for(let i=0; i < Math.min(fanartData.artistbackground.length, 8); i++) {
-                fanartArray.push(fanartData.artistbackground[i].url);
-            }
-        }
-    }
-}
+                    if (mbid) {
+                        let fanartKey = "5901f1655cfb16ad1eb7af6357ca9cc4";
+                        let timestamp = new Date().getTime();
+                        let fanartRes = await fetch(`https://webservice.fanart.tv/v3/music/${mbid}?api_key=${fanartKey}&_=${timestamp}`);
+
+                        if (fanartRes.ok) {
+                            let fanartData = await fanartRes.json();
+                            if (fanartData.artistbackground && fanartData.artistbackground.length > 0) {
+                                for(let i=0; i < Math.min(fanartData.artistbackground.length, 8); i++) {
+                                    fanartArray.push(fanartData.artistbackground[i].url);
+                                }
+                            }
+                        }
+                    }
                 }
             } catch (e) { console.error("Fanart Error: ", e); }
 
@@ -322,10 +319,10 @@ if (mbid) {
                 }
 
                 const trackKey = newArtist + " - " + newTitle;
-                
+
                 if (trackKey !== lastPolledTrackKey) {
                     lastPolledTrackKey = trackKey;
-                    
+
                     document.getElementById('artwork').style.display = 'none';
                     document.getElementById('bg-1').classList.remove('bg-active');
                     document.getElementById('bg-2').classList.remove('bg-active');
@@ -342,8 +339,8 @@ if (mbid) {
             let data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
             if (data.stationId && data.stationId !== currentStationId) {
                 currentStationId = data.stationId;
-                lastPolledTrackKey = ""; 
-                pollMetadata(); 
+                lastPolledTrackKey = "";
+                pollMetadata();
             }
         });
 
