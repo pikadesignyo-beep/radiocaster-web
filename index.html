@@ -7,153 +7,61 @@
         body { margin: 0; overflow: hidden; background-color: #0a0a0a; color: #ffffff; font-family: sans-serif; }
         .bg-layer { position: absolute; top: -5%; left: -5%; width: 110vw; height: 110vh; object-fit: cover; filter: blur(6px) brightness(0.5); z-index: -2; opacity: 0; transition: opacity 3s ease-in-out; animation: kenburns 25s linear infinite alternate; }
         .bg-active { opacity: 1; z-index: -1; }
-        #station-logo { position: absolute; top: 40px; right: 40px; height: 80px; z-index: 10; opacity: 0.8; }
-        #metadata-container { position: absolute; bottom: 15%; left: 8%; display: flex; align-items: center; z-index: 5; opacity: 1; transition: opacity 0.5s ease; }
-        #artwork { width: 250px; height: 250px; border-radius: 12px; margin-right: 30px; object-fit: cover; display: none; box-shadow: 0px 15px 40px rgba(0,0,0,0.8); }
-        .text-info { display: flex; flex-direction: column; text-shadow: 0px 4px 15px rgba(0,0,0,0.9); }
-        #title { font-size: 2.5em; font-weight: bold; margin-bottom: 8px; }
-        #artist { font-size: 1.8em; color: #e0e0e0; }
-        /* Debugger Styles */
         #tv-debugger { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); color:#00ff00; font-family:monospace; font-size:16px; padding:20px; z-index:99999; pointer-events:none; white-space:pre-wrap; overflow:hidden; }
     </style>
     <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 </head>
 <body>
     <div id="tv-debugger"></div>
-
     <img id="bg-1" class="bg-layer bg-active" src="" />
     <img id="bg-2" class="bg-layer" src="" />
-    <img id="station-logo" src="garage-fm-logo.png" />
-    <audio id="audio-engine"></audio>
-
-    <div id="metadata-container">
-        <img id="artwork" src="" />
-        <div class="text-info">
-            <div id="title">Garage FM</div>
-            <div id="artist">Ready to Stream</div>
-        </div>
-    </div>
 
     <script>
         const context = cast.framework.CastReceiverContext.getInstance();
-        const options = new cast.framework.CastReceiverOptions();
-        options.disableIdleTimeout = true;
-        options.mediaElement = document.getElementById('audio-engine');
-
-        // Global logging function for TV display
         const log = (msg) => {
             const container = document.getElementById('tv-debugger');
             const entry = document.createElement('div');
             entry.textContent = '> ' + msg;
             container.appendChild(entry);
-            console.log(msg);
         };
 
-        log("System Initialized");
-
-        let currentStationId = "thesound";
-        let lastPolledTrackKey = "";
-        let slideshowInterval;
-
-        const radioStationFluff = ["classic rock", "driving music", "hit mix", "80s", "90s", "current", "now playing", "station", "radio", "broadcast", "playlist"];
-
-        function startSlideshow(artistImagesArray) {
-            clearInterval(slideshowInterval);
-            let activeBg = document.getElementById('bg-1');
-            let hiddenBg = document.getElementById('bg-2');
-
-            if (!artistImagesArray || artistImagesArray.length === 0) {
-                log("No images found to display.");
-                return;
-            }
-
-            activeBg.src = artistImagesArray[0];
-            activeBg.classList.add('bg-active');
-            
-            if (artistImagesArray.length > 1) {
-                let currentIndex = 0;
-                slideshowInterval = setInterval(() => {
-                    currentIndex = (currentIndex + 1) % artistImagesArray.length;
-                    hiddenBg.src = artistImagesArray[currentIndex];
-                    setTimeout(() => {
-                        hiddenBg.classList.add('bg-active');
-                        activeBg.classList.remove('bg-active');
-                        let temp = activeBg;
-                        activeBg = hiddenBg;
-                        hiddenBg = temp;
-                    }, 500);
-                }, 30000);
-            }
-        }
-
-        async function fetchArtwork(artist, title) {
+        async function fetchArtwork(artist) {
             log("Fetching: " + artist);
-            let cleanArtist = artist.replace(/\s*\([^)]*\)/g, '').trim();
-            
             try {
                 // 1. MusicBrainz
-                log("Querying MusicBrainz...");
-                let mbUrl = `https://musicbrainz.org/ws/2/artist/?query=artist:"${encodeURIComponent(cleanArtist)}"&fmt=json`;
+                let mbUrl = `https://musicbrainz.org/ws/2/artist/?query=artist:"${encodeURIComponent(artist)}"&fmt=json`;
                 let mbRes = await fetch(mbUrl);
                 let mbData = await mbRes.json();
                 let mbid = mbData.artists?.[0]?.id;
 
-                if (!mbid) {
-                    log("ERR: MBID not found for " + cleanArtist);
-                    return;
-                }
-                log("MBID Found: " + mbid);
+                if (!mbid) { log("MBID lookup failed"); return; }
+                log("MBID: " + mbid);
 
-                // 2. Fanart
-                log("Fetching Fanart...");
+                // 2. Fanart with Proxy
                 let fanartKey = "5901f1655cfb16ad1eb7af6357ca9cc4";
-                let fanartRes = await fetch(`https://webservice.fanart.tv/v3/music/${mbid}?api_key=${fanartKey}`);
+                let targetUrl = `https://webservice.fanart.tv/v3/music/${mbid}?api_key=${fanartKey}`;
+                let fanartRes = await fetch('https://corsproxy.io/?' + encodeURIComponent(targetUrl));
                 
-                if (!fanartRes.ok) {
-                    log("ERR: Fanart API failed (" + fanartRes.status + ")");
-                    return;
-                }
+                if (!fanartRes.ok) { log("Proxy Error: " + fanartRes.status); return; }
 
                 let data = await fanartRes.json();
                 if (data.artistbackground) {
-                    let images = data.artistbackground.map(img => img.url);
-                    log("SUCCESS: Found " + images.length + " images.");
-                    startSlideshow(images);
+                    log("SUCCESS: Got images");
+                    document.getElementById('bg-1').src = data.artistbackground[0].url;
                 } else {
-                    log("ERR: No backgrounds for this artist.");
+                    log("No backgrounds found");
                 }
-
             } catch (e) {
-                log("CRITICAL ERROR: " + e.message);
+                log("CATCH ERROR: " + e.message);
             }
-        }
-
-        async function pollMetadata() {
-            if (!currentStationId) return;
-            let apiUrl = currentStationId === 'brianfm' ? "https://yp.cdnstream1.com/metadata/7100_128k/current.json" : `https://radio-api.mediaworks.nz/radio-api/v3/station/${currentStationId}/digital/web?unique=true`;
-
-            try {
-                const response = await fetch(apiUrl);
-                const json = await response.json();
-                const nowPlaying = json.nowPlaying?.[0] || json[0];
-                const newArtist = nowPlaying?.artist || nowPlaying?.TPE1 || "Radio";
-                const newTitle = nowPlaying?.name || nowPlaying?.TIT2 || "Track";
-
-                const trackKey = newArtist + " - " + newTitle;
-                if (trackKey !== lastPolledTrackKey) {
-                    lastPolledTrackKey = trackKey;
-                    fetchArtwork(newArtist, newTitle);
-                }
-            } catch (e) { console.error(e); }
         }
 
         context.addCustomMessageListener('urn:x-cast:nz.mediaworks.radio', (event) => {
             let data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-            fetchArtwork(data.artist, data.title);
+            fetchArtwork(data.artist);
         });
-
-        setInterval(pollMetadata, 5000);
-        context.start(options);
+        
+        context.start();
     </script>
 </body>
 </html>
