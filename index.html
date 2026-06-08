@@ -121,12 +121,10 @@
 
             let images = [];
             if (artistImagesArray && Array.isArray(artistImagesArray)) {
-                images = images.concat(artistImagesArray);
+                images = artistImagesArray;
             }
 
-            if (images.length === 0 && albumImg && albumImg.trim() !== "") {
-                images.push(albumImg);
-            }
+            // Fallback removed: The code no longer pushes albumImg to the background array.
 
             let activeBg = document.getElementById('bg-1');
             let hiddenBg = document.getElementById('bg-2');
