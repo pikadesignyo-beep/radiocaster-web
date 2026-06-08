@@ -179,7 +179,7 @@
         context.addCustomMessageListener('urn:x-cast:nz.mediaworks.radio', (event) => {
             let data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
             
-            const currentTrackKey = data.artist + data.title + data.stationId;
+            const currentTrackKey = data.artist + data.title + data.stationId + data.artworkUrl;
 
             if (currentTrackKey !== lastTrackKey) {
                 lastTrackKey = currentTrackKey;
