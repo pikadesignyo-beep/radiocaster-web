@@ -262,18 +262,22 @@
                     let mbData = await mbRes.json();
                     let mbid = (mbData.artists && mbData.artists.length > 0) ? mbData.artists[0].id : "";
 
-                    if (mbid) {
-                        let fanartKey = "5901f1655cfb16ad1eb7af6357ca9cc4";
-                        let fanartRes = await fetch(`https://webservice.fanart.tv/v3/music/${mbid}?api_key=${fanartKey}`);
-                        if (fanartRes.ok) {
-                            let fanartData = await fanartRes.json();
-                            if (fanartData.artistbackground && fanartData.artistbackground.length > 0) {
-                                for(let i=0; i < Math.min(fanartData.artistbackground.length, 8); i++) {
-                                    fanartArray.push(fanartData.artistbackground[i].url);
-                                }
-                            }
-                        }
-                    }
+                    // Modify the Fanart fetch block
+if (mbid) {
+    let fanartKey = "5901f1655cfb16ad1eb7af6357ca9cc4";
+    // Append timestamp to bust the cache and force a fresh CORS evaluation
+    let timestamp = new Date().getTime();
+    let fanartRes = await fetch(`https://webservice.fanart.tv/v3/music/${mbid}?api_key=${fanartKey}&_=${timestamp}`);
+    
+    if (fanartRes.ok) {
+        let fanartData = await fanartRes.json();
+        if (fanartData.artistbackground && fanartData.artistbackground.length > 0) {
+            for(let i=0; i < Math.min(fanartData.artistbackground.length, 8); i++) {
+                fanartArray.push(fanartData.artistbackground[i].url);
+            }
+        }
+    }
+}}
                 }
             } catch (e) { console.error("Fanart Error: ", e); }
 
