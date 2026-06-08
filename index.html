@@ -101,8 +101,20 @@
         options.disableIdleTimeout = true;
         options.mediaElement = document.getElementById('audio-engine');
 
-        let lastTrackKey = "";
+        let currentStationId = "thesound";
+        let lastPolledTrackKey = "";
         let slideshowInterval;
+
+        const compilationJunk = ["greatest", "best of", "hits", "collection", "anthology", "essential", "ultimate", "gold", "platinum", "classics", "singles", "volume", "box set", "archive"];
+        const liveJunk = ["live", "broadcast", "radio", "session", "recorded", "at the", "unplugged", "concert", "tour", "bbc", "sessions", "bootleg", "in session"];
+        const remasterJunk = ["deluxe", "expanded", "remaster", "remastered", "anniversary", "bonus", "special", "edition", "reissue", "super", "definitive", "extended", "original recording", "re:call"];
+        const hardJunk = ["karaoke", "instrumental", "tribute", "cover", "workout", "lullaby", "8-bit", "parody", "version", "remix", "mix", "dj", "soundtrack", "ost", "score"];
+        const radioStationFluff = ["classic rock", "driving music", "hit mix", "80s", "90s", "current", "now playing", "station", "radio", "broadcast", "playlist"];
+
+        function containsAnyWord(str, words) {
+            str = str.toLowerCase();
+            return words.some(word => new RegExp('\\b' + word + '\\b').test(str));
+        }
 
         function startSlideshow(artistImagesArray, albumImg) {
             clearInterval(slideshowInterval); 
@@ -119,7 +131,6 @@
             let activeBg = document.getElementById('bg-1');
             let hiddenBg = document.getElementById('bg-2');
 
-            // FIX: If there are no images, fade the background out 
             if (images.length === 0) {
                 activeBg.classList.remove('bg-active');
                 hiddenBg.classList.remove('bg-active');
@@ -135,7 +146,6 @@
                 
                 slideshowInterval = setInterval(() => {
                     currentIndex = (currentIndex + 1) % images.length;
-                    
                     hiddenBg.src = images[currentIndex];
                     
                     setTimeout(() => {
@@ -163,8 +173,6 @@
                 document.getElementById('artist').textContent = data.artist;
                 
                 const img = document.getElementById('artwork');
-                
-                // FIX: Ensure empty strings hide the artwork completely
                 if (data.artworkUrl && data.artworkUrl.trim() !== "") {
                     img.src = data.artworkUrl;
                     img.style.display = 'block';
@@ -172,8 +180,8 @@
                     img.style.display = 'none';
                 }
 
-                if (data.stationId === 'hauraki') logo.src = 'hauraki.png';
-                else if (data.stationId === 'brianfm') logo.src = 'brianfm.png';
+                if (currentStationId === 'hauraki') logo.src = 'hauraki.png';
+                else if (currentStationId === 'brianfm') logo.src = 'brianfm.png';
                 else logo.src = 'thesound.png';
 
                 startSlideshow(data.artistImages, data.artworkUrl);
@@ -183,16 +191,155 @@
             }, 500);
         }
 
+        async function fetchArtwork(artist, title) {
+            let cleanArtist = artist.replace(/\s*\([^)]*\)/g, '').trim();
+            let cleanTrack = title.replace(/\s*\([^)]*\)/g, '').trim();
+            radioStationFluff.forEach(fluff => {
+                cleanTrack = cleanTrack.replace(new RegExp(fluff, 'gi'), '').trim();
+            });
+
+            let foundArtwork = "";
+            let fanartArray = [];
+
+            try {
+                let itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(cleanArtist)}+${encodeURIComponent(cleanTrack)}&media=music&entity=song&limit=5`;
+                let res = await fetch(itUrl);
+                if (res.ok) {
+                    let data = await res.json();
+                    if (data.results && data.results.length > 0) {
+                        let cleanArtistNorm = cleanArtist.toLowerCase().replace(/&/g, "and");
+                        let cleanTrackNorm = cleanTrack.toLowerCase();
+                        let bestCandidateUrl = "";
+                        let bestScore = 0;
+
+                        for (let i = 0; i < data.results.length; i++) {
+                            let resultObj = data.results[i];
+                            let artistNameFromApi = (resultObj.artistName || "").toLowerCase().replace(/&/g, "and");
+                            let trackTitleFromApi = (resultObj.trackName || "").toLowerCase();
+                            let albumNameFromApi = (resultObj.collectionName || "").toLowerCase();
+
+                            let currentScore = 0;
+
+                            if (artistNameFromApi.includes(cleanArtistNorm) || cleanArtistNorm.includes(artistNameFromApi)) {
+                                currentScore += 50;
+                            }
+
+                            if (trackTitleFromApi === cleanTrackNorm) {
+                                currentScore += 50;
+                            } else if (trackTitleFromApi.includes(cleanTrackNorm) || cleanTrackNorm.includes(trackTitleFromApi)) {
+                                currentScore += 30;
+                            }
+
+                            if (containsAnyWord(albumNameFromApi, hardJunk) || containsAnyWord(trackTitleFromApi, hardJunk) || containsAnyWord(artistNameFromApi, hardJunk)) {
+                                currentScore -= 100;
+                            } else {
+                                if (containsAnyWord(albumNameFromApi, compilationJunk) || containsAnyWord(trackTitleFromApi, compilationJunk)) currentScore -= 25;
+                                if (containsAnyWord(albumNameFromApi, liveJunk) || containsAnyWord(trackTitleFromApi, liveJunk)) currentScore -= 20;
+                                if (containsAnyWord(albumNameFromApi, remasterJunk) || containsAnyWord(trackTitleFromApi, remasterJunk)) currentScore -= 5;
+                            }
+
+                            if (currentScore > bestScore) {
+                                bestScore = currentScore;
+                                bestCandidateUrl = (resultObj.artworkUrl100 || "").replace("100x100bb.jpg", "600x600bb.jpg");
+                            }
+                        }
+
+                        if (bestScore >= 70) {
+                            foundArtwork = bestCandidateUrl;
+                        }
+                    }
+                }
+            } catch (e) { console.error("iTunes Error: ", e); }
+
+            try {
+                let mbUrl = `https://musicbrainz.org/ws/2/artist/?query=artist:"${encodeURIComponent(cleanArtist)}"&fmt=json`;
+                let mbRes = await fetch(mbUrl, { headers: { "User-Agent": "GarageFM-Receiver/1.0" } });
+                if (mbRes.ok) {
+                    let mbData = await mbRes.json();
+                    let mbid = (mbData.artists && mbData.artists.length > 0) ? mbData.artists[0].id : "";
+
+                    if (mbid) {
+                        let fanartKey = "5901f1655cfb16ad1eb7af6357ca9cc4";
+                        let fanartRes = await fetch(`https://webservice.fanart.tv/v3/music/${mbid}?api_key=${fanartKey}`);
+                        if (fanartRes.ok) {
+                            let fanartData = await fanartRes.json();
+                            if (fanartData.artistbackground) {
+                                for(let i=0; i < Math.min(fanartData.artistbackground.length, 8); i++) {
+                                    fanartArray.push(fanartData.artistbackground[i].url);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) { console.error("Fanart Error: ", e); }
+
+            updateUI({
+                artist: artist,
+                title: title,
+                artworkUrl: foundArtwork,
+                artistImages: fanartArray
+            });
+        }
+
+        async function pollMetadata() {
+            if (!currentStationId) return;
+
+            let apiUrl = "";
+            if (currentStationId === 'brianfm') apiUrl = "https://yp.cdnstream1.com/metadata/7100_128k/current.json";
+            else if (currentStationId === 'hauraki') apiUrl = "https://nz.api.iheart.com/api/v3/live-meta/stream/6191/currentTrackMeta";
+            else apiUrl = `https://radio-api.mediaworks.nz/radio-api/v3/station/${currentStationId}/digital/web?unique=true`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) return;
+                const text = await response.text();
+                if (!text.trim()) return;
+
+                let newArtist = "The Sound";
+                let newTitle = "Live Broadcast";
+
+                if (currentStationId === 'brianfm') {
+                    const json = JSON.parse(text)[0];
+                    newArtist = json.TPE1 || "Brian FM";
+                    newTitle = json.TIT2 || "Live Stream";
+                } else if (currentStationId === 'hauraki') {
+                    const json = JSON.parse(text);
+                    newArtist = json.artist || "Radio Hauraki";
+                    newTitle = json.title || "Live Broadcast";
+                } else {
+                    const json = JSON.parse(text);
+                    const nowPlaying = json.nowPlaying && json.nowPlaying[0];
+                    newArtist = nowPlaying ? nowPlaying.artist : "The Sound";
+                    newTitle = nowPlaying ? nowPlaying.name : "Live Broadcast";
+                }
+
+                const trackKey = newArtist + " - " + newTitle;
+                
+                if (trackKey !== lastPolledTrackKey) {
+                    lastPolledTrackKey = trackKey;
+                    
+                    document.getElementById('artwork').style.display = 'none';
+                    document.getElementById('bg-1').classList.remove('bg-active');
+                    document.getElementById('bg-2').classList.remove('bg-active');
+                    clearInterval(slideshowInterval);
+
+                    fetchArtwork(newArtist, newTitle);
+                }
+            } catch (e) {
+                console.error("Polling Error: ", e);
+            }
+        }
+
         context.addCustomMessageListener('urn:x-cast:nz.mediaworks.radio', (event) => {
             let data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-            
-            const currentTrackKey = data.artist + data.title + data.stationId + data.artworkUrl;
-
-            if (currentTrackKey !== lastTrackKey) {
-                lastTrackKey = currentTrackKey;
-                updateUI(data);
+            if (data.stationId && data.stationId !== currentStationId) {
+                currentStationId = data.stationId;
+                lastPolledTrackKey = ""; 
+                pollMetadata(); 
             }
         });
+
+        setInterval(pollMetadata, 5000);
 
         context.start(options);
     </script>
