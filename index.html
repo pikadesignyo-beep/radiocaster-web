@@ -14,10 +14,12 @@
         .text-info { display: flex; flex-direction: column; text-shadow: 0px 4px 15px rgba(0,0,0,0.9); }
         #title { font-size: 2.5em; font-weight: bold; margin-bottom: 8px; }
         #artist { font-size: 1.8em; color: #e0e0e0; }
+        #tv-debugger { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); color:#00ff00; font-family:monospace; font-size:16px; padding:20px; z-index:99999; pointer-events:none; white-space:pre-wrap; overflow:hidden; }
     </style>
     <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 </head>
 <body>
+    <div id="tv-debugger"></div>
     <img id="bg-1" class="bg-layer bg-active" src="" alt="Background 1" />
     <img id="bg-2" class="bg-layer" src="" alt="Background 2" />
     <img id="station-logo" src="garage-fm-logo.png" alt="Station Logo" />
@@ -40,6 +42,13 @@
         let currentStationId = "thesound";
         let lastPolledTrackKey = "";
         let slideshowInterval;
+
+        const log = (msg) => {
+            const container = document.getElementById('tv-debugger');
+            const entry = document.createElement('div');
+            entry.textContent = '> ' + msg;
+            container.appendChild(entry);
+        };
 
         function startSlideshow(images) {
             clearInterval(slideshowInterval);
@@ -71,8 +80,8 @@
         function updateUI(data) {
             document.getElementById('title').textContent = data.title;
             document.getElementById('artist').textContent = data.artist;
-            const img = document.getElementById('artwork');
             
+            const img = document.getElementById('artwork');
             if (data.artworkUrl) {
                 img.src = data.artworkUrl;
                 img.style.display = 'block';
@@ -89,27 +98,39 @@
 
         async function fetchArtwork(artist, title) {
             let cleanArtist = artist.replace(/\s*\([^)]*\)/g, '').trim();
+            let artworkUrl = "";
+
+            // 1. Fetch Album Artwork from iTunes
+            try {
+                let itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(artist + " " + title)}&media=music&entity=song&limit=1`;
+                let itRes = await fetch(itUrl);
+                let itData = await itRes.json();
+                if (itData.results && itData.results.length > 0) {
+                    artworkUrl = itData.results[0].artworkUrl100.replace("100x100bb.jpg", "600x600bb.jpg");
+                }
+            } catch (e) { log("iTunes Error: " + e.message); }
+
+            // 2. Fetch Backgrounds from Fanart (via Proxy)
+            let fanartImages = [];
             try {
                 let mbUrl = `https://musicbrainz.org/ws/2/artist/?query=artist:"${encodeURIComponent(cleanArtist)}"&fmt=json`;
                 let mbRes = await fetch(mbUrl);
                 let mbData = await mbRes.json();
                 let mbid = mbData.artists?.[0]?.id;
                 
-                if (!mbid) return;
-                
-                let fanartKey = "5901f1655cfb16ad1eb7af6357ca9cc4";
-                let targetUrl = `https://webservice.fanart.tv/v3/music/${mbid}?api_key=${fanartKey}`;
-                let fanartRes = await fetch('https://corsproxy.io/?' + encodeURIComponent(targetUrl));
-                
-                if (!fanartRes.ok) return;
-                
-                let data = await fanartRes.json();
-                let images = data.artistbackground ? data.artistbackground.map(img => img.url) : [];
-                
-                updateUI({ artist, title, artistImages: images });
-            } catch (e) {
-                console.error(e);
-            }
+                if (mbid) {
+                    let fanartKey = "5901f1655cfb16ad1eb7af6357ca9cc4";
+                    let targetUrl = `https://webservice.fanart.tv/v3/music/${mbid}?api_key=${fanartKey}`;
+                    let fanartRes = await fetch('https://corsproxy.io/?' + encodeURIComponent(targetUrl));
+                    
+                    if (fanartRes.ok) {
+                        let data = await fanartRes.json();
+                        fanartImages = data.artistbackground ? data.artistbackground.map(img => img.url) : [];
+                    }
+                }
+            } catch (e) { log("Fanart/Proxy Error: " + e.message); }
+
+            updateUI({ artist, title, artworkUrl, artistImages: fanartImages });
         }
 
         async function pollMetadata() {
