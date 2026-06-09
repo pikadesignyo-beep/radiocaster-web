@@ -4,22 +4,74 @@
     <meta charset="UTF-8">
     <title>Garage FM</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #0a0a0a; color: #ffffff; font-family: sans-serif; }
-        @keyframes kenburns { 0% { transform: scale(1); } 100% { transform: scale(1.15); } }
-        .bg-layer { position: absolute; top: -5%; left: -5%; width: 110vw; height: 110vh; object-fit: cover; filter: blur(6px) brightness(0.5); z-index: -2; opacity: 0; transition: opacity 3s ease-in-out; animation: kenburns 25s linear infinite alternate; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #0a0a0a; 
+            color: #ffffff; 
+            font-family: sans-serif; 
+        }
+
+        @keyframes kenburns { 
+            0% { transform: scale(1); } 
+            100% { transform: scale(1.15); } 
+        }
+
+        .bg-layer { 
+            position: absolute; 
+            top: -5%; 
+            left: -5%; 
+            width: 110vw; 
+            height: 110vh; 
+            object-fit: cover; 
+            filter: blur(6px) brightness(0.9); 
+            z-index: -2; 
+            opacity: 0; 
+            transition: opacity 3s ease-in-out; 
+            animation: kenburns 25s linear infinite alternate; 
+        }
+
         .bg-active { opacity: 1; z-index: -1; }
-        #station-logo { position: absolute; top: 40px; right: 40px; height: 80px; z-index: 10; opacity: 0.8; transition: opacity 0.5s ease; }
-        #metadata-container { position: absolute; bottom: 15%; left: 8%; display: flex; align-items: center; z-index: 5; transition: opacity 0.5s ease; opacity: 1; }
-        #artwork { width: 250px; height: 250px; border-radius: 12px; margin-right: 30px; object-fit: cover; display: none; box-shadow: 0px 15px 40px rgba(0,0,0,0.8); transition: opacity 0.5s ease; }
+
+        #station-logo { 
+            position: absolute; 
+            top: 40px; 
+            right: 40px; 
+            height: 80px; 
+            z-index: 10; 
+            opacity: 1; 
+            transition: opacity 0.5s ease; 
+        }
+
+        #metadata-container { 
+            position: absolute; 
+            bottom: 15%; 
+            left: 8%; 
+            display: flex; 
+            align-items: center; 
+            z-index: 5; 
+            transition: opacity 0.5s ease; 
+            opacity: 1; 
+        }
+
+        #artwork { 
+            width: 250px; 
+            height: 250px; 
+            border-radius: 12px; 
+            margin-right: 30px; 
+            object-fit: cover; 
+            display: none; 
+            box-shadow: 0px 15px 40px rgba(0,0,0,0.8); 
+            transition: opacity 0.5s ease; 
+        }
+
         .text-info { display: flex; flex-direction: column; text-shadow: 0px 4px 15px rgba(0,0,0,0.9); }
         #title { font-size: 2.5em; font-weight: bold; margin-bottom: 8px; }
-        #artist { font-size: 1.8em; color: #e0e0e0; }
-        #tv-debugger { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); color:#00ff00; font-family:monospace; font-size:16px; padding:20px; z-index:99999; pointer-events:none; white-space:pre-wrap; overflow:hidden; }
+        #artist { font-size: 1.8em; color: #ffffff; }
     </style>
     <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 </head>
 <body>
-    <div id="tv-debugger"></div>
     <img id="bg-1" class="bg-layer bg-active" src="" alt="Background 1" />
     <img id="bg-2" class="bg-layer" src="" alt="Background 2" />
     <img id="station-logo" src="garage-fm-logo.png" alt="Station Logo" />
@@ -42,13 +94,6 @@
         let currentStationId = "thesound";
         let lastPolledTrackKey = "";
         let slideshowInterval;
-
-        const log = (msg) => {
-            const container = document.getElementById('tv-debugger');
-            const entry = document.createElement('div');
-            entry.textContent = '> ' + msg;
-            container.appendChild(entry);
-        };
 
         function startSlideshow(images) {
             clearInterval(slideshowInterval);
@@ -80,8 +125,8 @@
         function updateUI(data) {
             document.getElementById('title').textContent = data.title;
             document.getElementById('artist').textContent = data.artist;
-            
             const img = document.getElementById('artwork');
+            
             if (data.artworkUrl) {
                 img.src = data.artworkUrl;
                 img.style.display = 'block';
@@ -99,19 +144,19 @@
         async function fetchArtwork(artist, title) {
             let cleanArtist = artist.replace(/\s*\([^)]*\)/g, '').trim();
             let artworkUrl = "";
+            let fanartImages = [];
 
-            // 1. Fetch Album Artwork from iTunes
+            // 1. Fetch Album Art
             try {
                 let itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(artist + " " + title)}&media=music&entity=song&limit=1`;
                 let itRes = await fetch(itUrl);
                 let itData = await itRes.json();
-                if (itData.results && itData.results.length > 0) {
+                if (itData.results?.length > 0) {
                     artworkUrl = itData.results[0].artworkUrl100.replace("100x100bb.jpg", "600x600bb.jpg");
                 }
-            } catch (e) { log("iTunes Error: " + e.message); }
+            } catch (e) { console.error("iTunes Error: " + e.message); }
 
-            // 2. Fetch Backgrounds from Fanart (via Proxy)
-            let fanartImages = [];
+            // 2. Fetch Fanart (via Proxy)
             try {
                 let mbUrl = `https://musicbrainz.org/ws/2/artist/?query=artist:"${encodeURIComponent(cleanArtist)}"&fmt=json`;
                 let mbRes = await fetch(mbUrl);
@@ -128,7 +173,7 @@
                         fanartImages = data.artistbackground ? data.artistbackground.map(img => img.url) : [];
                     }
                 }
-            } catch (e) { log("Fanart/Proxy Error: " + e.message); }
+            } catch (e) { console.error("Fanart Error: " + e.message); }
 
             updateUI({ artist, title, artworkUrl, artistImages: fanartImages });
         }
