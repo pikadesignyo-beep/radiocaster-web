@@ -5,63 +5,143 @@
     <title>Garage FM</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #0a0a0a; color: #ffffff; font-family: sans-serif; }
+        @keyframes kenburns { 0% { transform: scale(1); } 100% { transform: scale(1.15); } }
         .bg-layer { position: absolute; top: -5%; left: -5%; width: 110vw; height: 110vh; object-fit: cover; filter: blur(6px) brightness(0.5); z-index: -2; opacity: 0; transition: opacity 3s ease-in-out; animation: kenburns 25s linear infinite alternate; }
         .bg-active { opacity: 1; z-index: -1; }
-        #tv-debugger { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); color:#00ff00; font-family:monospace; font-size:16px; padding:20px; z-index:99999; pointer-events:none; white-space:pre-wrap; overflow:hidden; }
+        #station-logo { position: absolute; top: 40px; right: 40px; height: 80px; z-index: 10; opacity: 0.8; transition: opacity 0.5s ease; }
+        #metadata-container { position: absolute; bottom: 15%; left: 8%; display: flex; align-items: center; z-index: 5; transition: opacity 0.5s ease; opacity: 1; }
+        #artwork { width: 250px; height: 250px; border-radius: 12px; margin-right: 30px; object-fit: cover; display: none; box-shadow: 0px 15px 40px rgba(0,0,0,0.8); transition: opacity 0.5s ease; }
+        .text-info { display: flex; flex-direction: column; text-shadow: 0px 4px 15px rgba(0,0,0,0.9); }
+        #title { font-size: 2.5em; font-weight: bold; margin-bottom: 8px; }
+        #artist { font-size: 1.8em; color: #e0e0e0; }
     </style>
     <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 </head>
 <body>
-    <div id="tv-debugger"></div>
-    <img id="bg-1" class="bg-layer bg-active" src="" />
-    <img id="bg-2" class="bg-layer" src="" />
+    <img id="bg-1" class="bg-layer bg-active" src="" alt="Background 1" />
+    <img id="bg-2" class="bg-layer" src="" alt="Background 2" />
+    <img id="station-logo" src="garage-fm-logo.png" alt="Station Logo" />
+    <audio id="audio-engine"></audio>
+
+    <div id="metadata-container">
+        <img id="artwork" src="" alt="Artwork" />
+        <div class="text-info">
+            <div id="title">Garage FM</div>
+            <div id="artist">Ready to Stream</div>
+        </div>
+    </div>
 
     <script>
         const context = cast.framework.CastReceiverContext.getInstance();
-        const log = (msg) => {
-            const container = document.getElementById('tv-debugger');
-            const entry = document.createElement('div');
-            entry.textContent = '> ' + msg;
-            container.appendChild(entry);
-        };
+        const options = new cast.framework.CastReceiverOptions();
+        options.disableIdleTimeout = true;
+        options.mediaElement = document.getElementById('audio-engine');
 
-        async function fetchArtwork(artist) {
-            log("Fetching: " + artist);
+        let currentStationId = "thesound";
+        let lastPolledTrackKey = "";
+        let slideshowInterval;
+
+        function startSlideshow(images) {
+            clearInterval(slideshowInterval);
+            let activeBg = document.getElementById('bg-1');
+            let hiddenBg = document.getElementById('bg-2');
+
+            if (!images || images.length === 0) return;
+
+            activeBg.src = images[0];
+            activeBg.classList.add('bg-active');
+            hiddenBg.classList.remove('bg-active');
+
+            if (images.length > 1) {
+                let currentIndex = 0;
+                slideshowInterval = setInterval(() => {
+                    currentIndex = (currentIndex + 1) % images.length;
+                    hiddenBg.src = images[currentIndex];
+                    setTimeout(() => {
+                        hiddenBg.classList.add('bg-active');
+                        activeBg.classList.remove('bg-active');
+                        let temp = activeBg;
+                        activeBg = hiddenBg;
+                        hiddenBg = temp;
+                    }, 500);
+                }, 30000);
+            }
+        }
+
+        function updateUI(data) {
+            document.getElementById('title').textContent = data.title;
+            document.getElementById('artist').textContent = data.artist;
+            const img = document.getElementById('artwork');
+            
+            if (data.artworkUrl) {
+                img.src = data.artworkUrl;
+                img.style.display = 'block';
+            } else {
+                img.style.display = 'none';
+            }
+
+            if (currentStationId === 'hauraki') document.getElementById('station-logo').src = 'hauraki.png';
+            else if (currentStationId === 'brianfm') document.getElementById('station-logo').src = 'brianfm.png';
+            else document.getElementById('station-logo').src = 'thesound.png';
+
+            startSlideshow(data.artistImages);
+        }
+
+        async function fetchArtwork(artist, title) {
+            let cleanArtist = artist.replace(/\s*\([^)]*\)/g, '').trim();
             try {
-                // 1. MusicBrainz
-                let mbUrl = `https://musicbrainz.org/ws/2/artist/?query=artist:"${encodeURIComponent(artist)}"&fmt=json`;
+                let mbUrl = `https://musicbrainz.org/ws/2/artist/?query=artist:"${encodeURIComponent(cleanArtist)}"&fmt=json`;
                 let mbRes = await fetch(mbUrl);
                 let mbData = await mbRes.json();
                 let mbid = mbData.artists?.[0]?.id;
-
-                if (!mbid) { log("MBID lookup failed"); return; }
-                log("MBID: " + mbid);
-
-                // 2. Fanart with Proxy
+                
+                if (!mbid) return;
+                
                 let fanartKey = "5901f1655cfb16ad1eb7af6357ca9cc4";
                 let targetUrl = `https://webservice.fanart.tv/v3/music/${mbid}?api_key=${fanartKey}`;
                 let fanartRes = await fetch('https://corsproxy.io/?' + encodeURIComponent(targetUrl));
                 
-                if (!fanartRes.ok) { log("Proxy Error: " + fanartRes.status); return; }
-
+                if (!fanartRes.ok) return;
+                
                 let data = await fanartRes.json();
-                if (data.artistbackground) {
-                    log("SUCCESS: Got images");
-                    document.getElementById('bg-1').src = data.artistbackground[0].url;
-                } else {
-                    log("No backgrounds found");
-                }
+                let images = data.artistbackground ? data.artistbackground.map(img => img.url) : [];
+                
+                updateUI({ artist, title, artistImages: images });
             } catch (e) {
-                log("CATCH ERROR: " + e.message);
+                console.error(e);
             }
+        }
+
+        async function pollMetadata() {
+            if (!currentStationId) return;
+            let apiUrl = currentStationId === 'brianfm' ? "https://yp.cdnstream1.com/metadata/7100_128k/current.json" : `https://radio-api.mediaworks.nz/radio-api/v3/station/${currentStationId}/digital/web?unique=true`;
+
+            try {
+                const response = await fetch(apiUrl);
+                const json = await response.json();
+                const nowPlaying = json.nowPlaying?.[0] || json[0];
+                const newArtist = nowPlaying?.artist || nowPlaying?.TPE1 || "Radio";
+                const newTitle = nowPlaying?.name || nowPlaying?.TIT2 || "Track";
+
+                const trackKey = newArtist + " - " + newTitle;
+                if (trackKey !== lastPolledTrackKey) {
+                    lastPolledTrackKey = trackKey;
+                    fetchArtwork(newArtist, newTitle);
+                }
+            } catch (e) { console.error(e); }
         }
 
         context.addCustomMessageListener('urn:x-cast:nz.mediaworks.radio', (event) => {
             let data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-            fetchArtwork(data.artist);
+            if (data.stationId && data.stationId !== currentStationId) {
+                currentStationId = data.stationId;
+                lastPolledTrackKey = "";
+                pollMetadata();
+            }
         });
-        
-        context.start();
+
+        setInterval(pollMetadata, 5000);
+        context.start(options);
     </script>
 </body>
 </html>
