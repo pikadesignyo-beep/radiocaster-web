@@ -12,9 +12,28 @@
             font-family: sans-serif; 
         }
 
+        #bg-container { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden; 
+            z-index: 1; 
+        }
+
+        #ui-layer { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 10; 
+        }
+
         @keyframes kenburns { 
-            0% { transform: scale(1); } 
-            100% { transform: scale(1.15); } 
+            0% { transform: scale(1) translateZ(0); } 
+            100% { transform: scale(1.15) translateZ(0); } 
         }
 
         .bg-layer { 
@@ -25,23 +44,20 @@
             height: 110vh; 
             object-fit: cover; 
             filter: blur(6px) brightness(0.9); 
-            z-index: -2; 
             opacity: 0; 
             transition: opacity 3s ease-in-out; 
             animation: kenburns 25s linear infinite alternate; 
+            will-change: transform, opacity;
         }
 
-        .bg-active { opacity: 1; z-index: -1; }
+        .bg-active { opacity: 1; }
 
         #station-logo { 
             position: absolute; 
             top: 40px; 
             right: 40px; 
             height: 80px; 
-            z-index: 10; 
-            opacity: 1; 
             transition: opacity 0.5s ease; 
-            transform: translateZ(0); 
         }
 
         #metadata-container { 
@@ -50,10 +66,8 @@
             left: 8%; 
             display: flex; 
             align-items: center; 
-            z-index: 5; 
             transition: opacity 0.5s ease; 
             opacity: 1; 
-            transform: translateZ(0); 
         }
 
         #artwork { 
@@ -74,18 +88,23 @@
     <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 </head>
 <body>
-    <img id="bg-1" class="bg-layer bg-active" src="" alt="Background 1" />
-    <img id="bg-2" class="bg-layer" src="" alt="Background 2" />
-    <img id="station-logo" src="garage-fm-logo.png" alt="Station Logo" />
-    <audio id="audio-engine"></audio>
+    <div id="bg-container">
+        <img id="bg-1" class="bg-layer bg-active" src="" alt="Background 1" />
+        <img id="bg-2" class="bg-layer" src="" alt="Background 2" />
+    </div>
 
-    <div id="metadata-container">
-        <img id="artwork" src="" alt="Artwork" />
-        <div class="text-info">
-            <div id="title">Garage FM</div>
-            <div id="artist">Ready to Stream</div>
+    <div id="ui-layer">
+        <img id="station-logo" src="garage-fm-logo.png" alt="Station Logo" />
+        <div id="metadata-container">
+            <img id="artwork" src="" alt="Artwork" />
+            <div class="text-info">
+                <div id="title">Garage FM</div>
+                <div id="artist">Ready to Stream</div>
+            </div>
         </div>
     </div>
+
+    <audio id="audio-engine"></audio>
 
     <script>
         const context = cast.framework.CastReceiverContext.getInstance();
